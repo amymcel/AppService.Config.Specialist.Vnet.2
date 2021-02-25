@@ -1,0 +1,250 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "EngineerAlias": {
+      "type": "string",
+      "defaultValue": "MsAlias",
+      "metadata": {
+        "description": "Engineer MS Alias"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": null,
+      "metadata": {
+        "description": "The VM admin username."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "defaultValue": null,
+      "metadata": {
+        "description": "The VM admin password."
+      }
+    }
+  },
+  "variables": {
+    "appServicePlanName": "[concat(parameters('EngineerAlias'),'-V2-ASP')]",
+    "appName": "[concat(parameters('EngineerAlias'),'-V2-APP')]",
+
+    "vnetName1": "[concat(parameters('EngineerAlias'), '-V2-net1')]",
+    "vnet1AddressPrefix": "10.251.1.0/24",
+    "subnet1Name1": "default",
+    "subnet1AddressPrefix1": "10.251.1.0/27",
+    "subnet1Name2": "apps",
+    "subnet1AddressPrefix2": "10.251.1.32/27",
+
+    "vm1Name": "[concat(parameters('EngineerAlias'), '-V2-vm')]",
+    "nic1Name": "[concat(parameters('EngineerAlias'), '-V2-vmnic')]",
+    "publicIPAddress1Name": "[concat(parameters('EngineerAlias'), '-V2-vmip')]",
+
+    "sqlServerName": "[concat(parameters('EngineerAlias'), '-v2-sql')]",
+    "sqlDbName": "[concat(parameters('EngineerAlias'), '-v2-db')]",
+    "administratorLoginPassword": "[concat(parameters('EngineerAlias'), 'PW')]",
+    "networkrule": "app-only"
+
+  },
+  "resources": [
+    //vnet -------------------------------------------------------------
+    {
+      "name": "[variables('vnetName1')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2019-12-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnet1AddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnet1Name1')]",
+            "properties": {
+              "addressPrefix": "[variables('subnet1AddressPrefix1')]"
+            }
+          },
+          {
+            "name": "[variables('subnet1Name2')]",
+            "properties": {
+              "addressPrefix": "[variables('subnet1AddressPrefix2')]",
+              "delegations": [
+                {
+                  "name": "delegation",
+                  "properties": {
+                    "serviceName": "Microsoft.Web/serverFarms"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    //SQL --------------------------------------------------------------
+    {
+      "name": "[variables('sqlServerName')]",
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2019-06-01-preview",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName1'))]"
+      ],
+      "properties": {
+        "administratorLogin": "[parameters('adminUsername')]",
+        "administratorLoginPassword": "[parameters('adminPassword')]",
+        "version": "12.0"
+      },
+      "resources": [
+        {
+          "name": "[variables('sqlDbName')]",
+          "type": "databases",
+          "apiVersion": "2020-08-01-preview",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+          ],
+          "properties": {
+            "edition": "Basic",
+            "collation": "SQL_Latin1_General_CP1_CI_AS",
+            "maxSizeBytes": "1073741824",
+            "requestedServiceObjectiveName": "Basic"
+          }
+        },
+        {
+          "name": "[variables('networkrule')]",
+          "type": "virtualNetworkRules",
+          "apiVersion": "2015-05-01-preview",
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+          ],
+          "properties": {
+            "virtualNetworkSubnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName1'), variables('subnet1Name2'))]",
+            "ignoreMissingVnetServiceEndpoint": "true"
+          }
+        }
+      ]
+    },
+    //web -------------------------------------------------------------
+    {
+      "name": "[variables('appServicePlanName')]",
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2018-02-01",
+      "location": "[resourceGroup().location]",
+      "properties": {},
+      "sku": {
+        "name": "S1",
+        "capacity": 0
+      },
+      "kind": "app"
+    },
+    {
+      "name": "[variables('appName')]",
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2018-11-01",
+      "location": "[resourceGroup().location]",
+      "kind": "app",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName1'))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverFarms', variables('appServicePlanName'))]"
+      },
+      "resources": [
+        {
+          "name": "virtualNetwork",
+          "type": "config",
+          "apiVersion": "2018-11-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', variables('appName'))]"
+          ],
+          "properties": {
+            "subnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName1'), variables('subnet1Name2'))]",
+            "swiftSupported": true
+          }
+        }
+      ]
+    },
+    //VM ---------------------------------------------------------------
+    {
+      "name": "[variables('publicIPAddress1Name')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2020-05-01",
+      "location": "[resourceGroup().location]",
+      "sku": { "name": "Basic" },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "publicIPAddressVersion": "IPv4"
+      }
+    },
+    {
+      "name": "[variables('nic1Name')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2020-05-01",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName1'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses/', variables('publicIPAddress1Name'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName1'), variables('subnet1Name1'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIpAddress": {
+                "id": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIPAddresses', variables('publicIpAddress1Name'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('vm1Name')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2019-07-01",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces',variables('nic1Name'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B2ms"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "fromImage",
+            "managedDisk": {
+              "storageAccountType": "Premium_LRS"
+            }
+          },
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2019-Datacenter",
+            "version": "latest"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nic1Name'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('vm1Name')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        }
+      }
+    }
+  ]
+}
+
