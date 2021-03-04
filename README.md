@@ -6,8 +6,8 @@ ARM Template for deploying lab for AppService Config Specialist Certification - 
 
 ## This arm deployment will:
 
-1. Create an App Service Plan.
-2. Create an Web App.
+1. Create an App Service Plan
+2. Create an Web App
 3. Create an Azure SQL Server and database
 4. Create a virtual network
 5. Create a VM on the virtual network
