@@ -8,32 +8,21 @@
       "metadata": {
         "description": "Engineer MS Alias"
       }
-    },
-    "adminUsername": {
-      "type": "string",
-      "defaultValue": null,
-      "metadata": {
-        "description": "The VM admin username."
-      }
-    },
-    "adminPassword": {
-      "type": "securestring",
-      "defaultValue": null,
-      "metadata": {
-        "description": "The VM admin password."
-      }
     }
   },
   "variables": {
     "appServicePlanName": "[concat(parameters('EngineerAlias'),'-V2-ASP')]",
     "appName": "[concat(parameters('EngineerAlias'),'-V2-APP')]",
 
-    "vnetName1": "[concat(parameters('EngineerAlias'), '-V2-net1')]",
+    "vnetName1": "[concat(parameters('EngineerAlias'), '-V2-vnet1')]",
     "vnet1AddressPrefix": "10.251.1.0/24",
     "subnet1Name1": "default",
     "subnet1AddressPrefix1": "10.251.1.0/27",
     "subnet1Name2": "apps",
     "subnet1AddressPrefix2": "10.251.1.32/27",
+
+    "adminUsername": "specialistAdmin",
+    "adminPassword": "passWord99",
 
     "vm1Name": "[concat(parameters('EngineerAlias'), '-V2-vm')]",
     "nic1Name": "[concat(parameters('EngineerAlias'), '-V2-vmnic')]",
@@ -92,8 +81,8 @@
         "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName1'))]"
       ],
       "properties": {
-        "administratorLogin": "[parameters('adminUsername')]",
-        "administratorLoginPassword": "[parameters('adminPassword')]",
+        "administratorLogin": "[variables('adminUsername')]",
+        "administratorLoginPassword": "[variables('adminPassword')]",
         "version": "12.0"
       },
       "resources": [
@@ -240,8 +229,8 @@
         },
         "osProfile": {
           "computerName": "[variables('vm1Name')]",
-          "adminUsername": "[parameters('adminUsername')]",
-          "adminPassword": "[parameters('adminPassword')]"
+          "adminUsername": "[variables('adminUsername')]",
+          "adminPassword": "[variables('adminPassword')]"
         }
       }
     }
