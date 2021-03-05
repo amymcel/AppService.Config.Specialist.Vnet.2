@@ -4,12 +4,6 @@
   "parameters": {
     "EngineerAlias": {
       "value": "amymcel"
-    },
-    "adminUsername": {
-      "value": "L200admin"
-    },
-    "adminPassword": {
-      "value": "L200password"
     }
   }
 }
