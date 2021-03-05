@@ -30,7 +30,6 @@
 
     "sqlServerName": "[concat(parameters('EngineerAlias'), '-v2-sql')]",
     "sqlDbName": "[concat(parameters('EngineerAlias'), '-v2-db')]",
-    "administratorLoginPassword": "[concat(parameters('EngineerAlias'), 'PW')]",
     "networkrule": "app-only"
 
   },
