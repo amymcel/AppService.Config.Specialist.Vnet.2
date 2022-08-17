@@ -6,7 +6,7 @@
       "type": "string",
       "defaultValue": "MsAlias",
       "metadata": {
-        "description": "Engineer MS Alias"
+        "description": "Engineer MS Alias - 15 characters only!"
       }
     }
   },
